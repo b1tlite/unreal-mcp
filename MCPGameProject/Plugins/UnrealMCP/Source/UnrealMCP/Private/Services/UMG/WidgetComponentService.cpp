@@ -24,6 +24,8 @@
 #include "Components/SizeBox.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/PanelWidget.h"
+#include "Components/ContentWidget.h"
 #include "Components/ComboBoxString.h"
 #include "Components/EditableText.h"
 #include "Components/EditableTextBox.h"
@@ -254,8 +256,11 @@ UWidget* FWidgetComponentService::CreateWidgetComponent(
     {
         CreatedWidget = CreateCanvasPanel(WidgetBlueprint, ComponentName, KwargsObject);
     }
-    // ComboBox
-    else if (ComponentType.Equals(TEXT("ComboBox"), ESearchCase::IgnoreCase))
+    // ComboBox / ComboBoxString
+    else if (
+        ComponentType.Equals(TEXT("ComboBox"), ESearchCase::IgnoreCase) ||
+        ComponentType.Equals(TEXT("ComboBoxString"), ESearchCase::IgnoreCase)
+    )
     {
         CreatedWidget = CreateComboBox(WidgetBlueprint, ComponentName, KwargsObject);
     }
@@ -671,15 +676,29 @@ bool FWidgetComponentService::AddWidgetToTree(UWidgetBlueprint* WidgetBlueprint,
         return false;
     }
 
-    // Get the root widget (should be a CanvasPanel)
+    // Ensure the blueprint has a root widget. Default to CanvasPanel so absolute-position
+    // authoring still has a sane fallback for freshly created widget blueprints.
     UWidget* RootWidget = WidgetBlueprint->WidgetTree->RootWidget;
     if (!RootWidget)
     {
-        UE_LOG(LogTemp, Error, TEXT("Widget blueprint has no root widget"));
-        return false;
+        UE_LOG(LogTemp, Display, TEXT("Widget blueprint has no root widget. Creating a default CanvasPanel root."));
+
+        UCanvasPanel* RootCanvas = WidgetBlueprint->WidgetTree->ConstructWidget<UCanvasPanel>(
+            UCanvasPanel::StaticClass(),
+            TEXT("CanvasPanel")
+        );
+
+        if (!RootCanvas)
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to create default CanvasPanel root widget"));
+            return false;
+        }
+
+        WidgetBlueprint->WidgetTree->RootWidget = RootCanvas;
+        RootWidget = RootCanvas;
     }
 
-    // Try to cast to CanvasPanel (most common case)
+    // CanvasPanel supports absolute positioning and sizing.
     if (UCanvasPanel* CanvasPanel = Cast<UCanvasPanel>(RootWidget))
     {
         // Add the widget as a child of the canvas panel
@@ -707,15 +726,43 @@ bool FWidgetComponentService::AddWidgetToTree(UWidgetBlueprint* WidgetBlueprint,
             return false;
         }
     }
-    else
+
+    // Generic panel widgets can still accept children, but slot semantics depend on panel type.
+    if (UPanelWidget* PanelWidget = Cast<UPanelWidget>(RootWidget))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Root widget is not a CanvasPanel, cannot set position/size. Root widget type: %s"), 
-            *RootWidget->GetClass()->GetName());
-        
-        // For non-canvas panels, we can still try to add the widget but without position/size control
-        // This would require different logic based on the panel type
+        if (PanelWidget->AddChild(Widget))
+        {
+            Widget->bIsVariable = true;
+            UE_LOG(LogTemp, Log, TEXT("Added widget '%s' to panel root '%s' (type: %s) without canvas positioning."),
+                *Widget->GetName(), *RootWidget->GetName(), *RootWidget->GetClass()->GetName());
+            return true;
+        }
+
+        UE_LOG(LogTemp, Error, TEXT("Failed to add widget '%s' to panel root '%s' (type: %s)."),
+            *Widget->GetName(), *RootWidget->GetName(), *RootWidget->GetClass()->GetName());
         return false;
     }
+
+    // Content widgets can host a single child.
+    if (UContentWidget* ContentWidget = Cast<UContentWidget>(RootWidget))
+    {
+        if (ContentWidget->GetContent())
+        {
+            UE_LOG(LogTemp, Error, TEXT("Root content widget '%s' already has content; cannot add '%s'."),
+                *RootWidget->GetName(), *Widget->GetName());
+            return false;
+        }
+
+        ContentWidget->SetContent(Widget);
+        Widget->bIsVariable = true;
+        UE_LOG(LogTemp, Log, TEXT("Added widget '%s' to content root '%s' (type: %s)."),
+            *Widget->GetName(), *RootWidget->GetName(), *RootWidget->GetClass()->GetName());
+        return true;
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Root widget type '%s' does not support child insertion for '%s'."),
+        *RootWidget->GetClass()->GetName(), *Widget->GetName());
+    return false;
 }
 
 void FWidgetComponentService::SaveWidgetBlueprint(UWidgetBlueprint* WidgetBlueprint)
