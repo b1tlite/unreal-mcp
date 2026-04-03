@@ -647,9 +647,7 @@ bool FWidgetValidationService::DoesWidgetBlueprintExist(const FString& Blueprint
 
 bool FWidgetValidationService::DoesWidgetComponentExist(const FString& BlueprintName, const FString& ComponentName) const
 {
-    // Use the centralized FindWidgetBlueprint utility
-    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindWidgetBlueprint(BlueprintName);
-    UWidgetBlueprint* WidgetBlueprint = Cast<UWidgetBlueprint>(Blueprint);
+    UWidgetBlueprint* WidgetBlueprint = Cast<UWidgetBlueprint>(FUnrealMCPCommonUtils::FindWidgetBlueprint(BlueprintName));
     
     if (!WidgetBlueprint)
     {
@@ -663,7 +661,7 @@ bool FWidgetValidationService::DoesWidgetComponentExist(const FString& Blueprint
         return false;
     }
     
-    UWidget* Widget = WidgetBlueprint->WidgetTree->FindWidget(FName(*ComponentName));
+    UWidget* Widget = FUnrealMCPCommonUtils::FindWidgetInBlueprint(WidgetBlueprint, ComponentName);
     
     if (!Widget)
     {

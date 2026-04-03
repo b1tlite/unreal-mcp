@@ -4,6 +4,7 @@
 #include "Engine/Blueprint.h"
 #include "WidgetBlueprint.h"
 #include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetTree.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphNode.h"
 #include "EdGraph/EdGraphPin.h"
@@ -21,6 +22,8 @@
 #include "Components/LightComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/SceneComponent.h"
+#include "Components/Widget.h"
+#include "Components/CanvasPanel.h"
 #include "UObject/UObjectIterator.h"
 #include "Engine/Selection.h"
 #include "EditorAssetLibrary.h"
@@ -532,6 +535,48 @@ UClass* FUnrealMCPCommonUtils::FindWidgetClass(const FString& WidgetPath)
 UBlueprint* FUnrealMCPCommonUtils::FindWidgetBlueprint(const FString& WidgetPath)
 {
     return FAssetUtils::FindWidgetBlueprint(WidgetPath);
+}
+
+UWidget* FUnrealMCPCommonUtils::FindWidgetInBlueprint(UWidgetBlueprint* WidgetBlueprint, const FString& ComponentName, bool bAllowRootCanvasFallback)
+{
+    if (!WidgetBlueprint || !WidgetBlueprint->WidgetTree)
+    {
+        return nullptr;
+    }
+
+    const bool bIsCommonRootCanvasName =
+        ComponentName.Equals(TEXT("CanvasPanel_0"), ESearchCase::IgnoreCase) ||
+        ComponentName.Equals(TEXT("RootCanvas"), ESearchCase::IgnoreCase) ||
+        ComponentName.Equals(TEXT("Root Canvas"), ESearchCase::IgnoreCase) ||
+        ComponentName.Equals(TEXT("Canvas Panel"), ESearchCase::IgnoreCase) ||
+        ComponentName.Equals(TEXT("CanvasPanel"), ESearchCase::IgnoreCase);
+
+    if (bAllowRootCanvasFallback && bIsCommonRootCanvasName)
+    {
+        if (UWidget* RootWidget = WidgetBlueprint->WidgetTree->RootWidget)
+        {
+            if (RootWidget->IsA<UCanvasPanel>())
+            {
+                return RootWidget;
+            }
+        }
+    }
+
+    if (UWidget* ExactWidget = WidgetBlueprint->WidgetTree->FindWidget(FName(*ComponentName)))
+    {
+        return ExactWidget;
+    }
+
+    UWidget* CaseInsensitiveMatch = nullptr;
+    WidgetBlueprint->WidgetTree->ForEachWidget([&](UWidget* Widget)
+    {
+        if (!CaseInsensitiveMatch && Widget && Widget->GetName().Equals(ComponentName, ESearchCase::IgnoreCase))
+        {
+            CaseInsensitiveMatch = Widget;
+        }
+    });
+
+    return CaseInsensitiveMatch;
 }
 
 UObject* FUnrealMCPCommonUtils::FindAssetByPath(const FString& AssetPath)

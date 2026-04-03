@@ -19,6 +19,8 @@ class UBlueprint;
 class UEdGraph;
 class UEdGraphNode;
 class UEdGraphPin;
+class UWidget;
+class UWidgetBlueprint;
 class UK2Node_Event;
 class UK2Node_CallFunction;
 class UK2Node_VariableGet;
@@ -129,6 +131,7 @@ public:
     // Enhanced asset loading with discovery
     static UClass* FindWidgetClass(const FString& WidgetPath);
     static UBlueprint* FindWidgetBlueprint(const FString& WidgetPath);
+    static UWidget* FindWidgetInBlueprint(UWidgetBlueprint* WidgetBlueprint, const FString& ComponentName, bool bAllowRootCanvasFallback = true);
     static UObject* FindAssetByPath(const FString& AssetPath);
     static UObject* FindAssetByName(const FString& AssetName, const FString& AssetType = TEXT(""));
     static UScriptStruct* FindStructType(const FString& StructPath);

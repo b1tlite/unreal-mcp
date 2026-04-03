@@ -221,7 +221,7 @@ bool FUMGService::SetWidgetProperties(const FString& BlueprintName, const FStrin
         return false;
     }
 
-    UWidget* Widget = WidgetBlueprint->WidgetTree->FindWidget(FName(*ComponentName));
+    UWidget* Widget = FUnrealMCPCommonUtils::FindWidgetInBlueprint(WidgetBlueprint, ComponentName);
     if (!Widget)
     {
         UE_LOG(LogTemp, Error, TEXT("UMGService: Failed to find widget component: %s"), *ComponentName);
@@ -500,12 +500,12 @@ bool FUMGService::BindWidgetEvent(const FString& BlueprintName, const FString& C
         return false;
     }
 
-    UWidget* Widget = WidgetBlueprint->WidgetTree->FindWidget(FName(*ComponentName));
-    if (!Widget)
-    {
-        UE_LOG(LogTemp, Error, TEXT("UMGService: Failed to find widget component: %s"), *ComponentName);
-        return false;
-    }
+   UWidget* Widget = FUnrealMCPCommonUtils::FindWidgetInBlueprint(WidgetBlueprint, ComponentName);
+   if (!Widget)
+   {
+       UE_LOG(LogTemp, Error, TEXT("UMGService: Failed to find widget component: %s"), *ComponentName);
+       return false;
+   }
 
     // Ensure the widget is exposed as a variable - required for event binding
     if (!Widget->bIsVariable)
@@ -530,12 +530,12 @@ bool FUMGService::SetTextBlockBinding(const FString& BlueprintName, const FStrin
         return false;
     }
 
-    UTextBlock* TextBlock = Cast<UTextBlock>(WidgetBlueprint->WidgetTree->FindWidget(FName(*TextBlockName)));
-    if (!TextBlock)
-    {
-        UE_LOG(LogTemp, Error, TEXT("UMGService: Failed to find text block widget: %s"), *TextBlockName);
-        return false;
-    }
+   UTextBlock* TextBlock = Cast<UTextBlock>(FUnrealMCPCommonUtils::FindWidgetInBlueprint(WidgetBlueprint, TextBlockName));
+   if (!TextBlock)
+   {
+       UE_LOG(LogTemp, Error, TEXT("UMGService: Failed to find text block widget: %s"), *TextBlockName);
+       return false;
+   }
 
     // Create variable if it doesn't exist
     bool bVariableExists = false;
@@ -596,42 +596,10 @@ bool FUMGService::DoesWidgetComponentExist(const FString& BlueprintName, const F
         return false;
     }
 
-    // Special case: For common root canvas names, check root widget first
-    // This ensures predictable behavior when users expect to find the root canvas
-    bool bIsCommonRootCanvasName = (
-        ComponentName.Equals(TEXT("CanvasPanel_0"), ESearchCase::IgnoreCase) ||
-        ComponentName.Equals(TEXT("RootCanvas"), ESearchCase::IgnoreCase) ||
-        ComponentName.Equals(TEXT("Root Canvas"), ESearchCase::IgnoreCase) ||
-        ComponentName.Equals(TEXT("Canvas Panel"), ESearchCase::IgnoreCase)
-    );
-
-    if (bIsCommonRootCanvasName)
-    {
-        // Check if the root widget is a canvas panel
-        if (WidgetBlueprint->WidgetTree->RootWidget && 
-            WidgetBlueprint->WidgetTree->RootWidget->IsA<UCanvasPanel>())
-        {
-            UE_LOG(LogTemp, Display, TEXT("UMGService: Found root canvas panel for common root name: %s"), *ComponentName);
-            return true;
-        }
-    }
-
-    // Try to find the widget by exact name (this handles both named widgets and the root "CanvasPanel")
-    UWidget* Widget = WidgetBlueprint->WidgetTree->FindWidget(FName(*ComponentName));
+    UWidget* Widget = FUnrealMCPCommonUtils::FindWidgetInBlueprint(WidgetBlueprint, ComponentName);
     if (Widget)
     {
         return true;
-    }
-
-    // Final fallback: If searching for "CanvasPanel" and no exact match found, check root widget
-    if (ComponentName.Equals(TEXT("CanvasPanel"), ESearchCase::IgnoreCase))
-    {
-        if (WidgetBlueprint->WidgetTree->RootWidget && 
-            WidgetBlueprint->WidgetTree->RootWidget->IsA<UCanvasPanel>())
-        {
-            UE_LOG(LogTemp, Display, TEXT("UMGService: Found root canvas panel as fallback for: %s"), *ComponentName);
-            return true;
-        }
     }
 
     return false;
@@ -648,7 +616,7 @@ bool FUMGService::SetWidgetPlacement(const FString& BlueprintName, const FString
         return false;
     }
 
-    UWidget* Widget = WidgetBlueprint->WidgetTree->FindWidget(FName(*ComponentName));
+    UWidget* Widget = FUnrealMCPCommonUtils::FindWidgetInBlueprint(WidgetBlueprint, ComponentName);
     if (!Widget)
     {
         UE_LOG(LogTemp, Error, TEXT("UMGService: Failed to find widget component: %s"), *ComponentName);
